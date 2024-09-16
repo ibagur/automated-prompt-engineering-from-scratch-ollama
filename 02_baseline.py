@@ -4,7 +4,7 @@ from prompt_evaluator import PromptEvaluator
 
 
 if __name__ == "__main__":
-    df_train = pd.read_csv('test.csv')  # Load your training data
+    df_train = pd.read_csv('test.csv')  # Load your test data
 
     target_model_config = {
         'name': 'gemma2:latest',

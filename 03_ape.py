@@ -1,7 +1,6 @@
 import asyncio
 import os
 import pandas as pd
-#from vertexai.generative_models import GenerativeModel, HarmBlockThreshold, HarmCategory
 from ollama import AsyncClient
 import re
 import aiofiles
@@ -17,11 +16,9 @@ class APD:
         self.starting_prompt = starting_prompt
         self.df_train = df_train
         self.metaprompt_template_path = metaprompt_template_path
-        #self.generation_model_name = generation_model_name
         self.generation_config = generation_config
 
         # Initialize the generation model
-        #self.generation_model = GenerativeModel(self.generation_model_name)
         self.generation_model = AsyncClient()
 
         # Create the "runs" folder if it doesn't exist
@@ -98,18 +95,10 @@ class APD:
         )
         return response['response']
 
-        # response = self.generation_model.generate_content(
-        #     metaprompt,
-        #     generation_config=self.generation_config,
-        #     safety_settings=self.safety_settings,
-        #     stream=False,
-        # )
-        # return response
 
     async def main(self):
         prompt_accuracies = []
         best_prompt = self.starting_prompt
-        #best_accuracy = 0.0
         best_accuracy = float('-inf')  # Initialize with negative infinity
 
         for i in range(self.num_prompts + 1):
@@ -118,10 +107,6 @@ class APD:
 
             if i == 0:
                 new_prompt = self.starting_prompt
-                # Evaluate the starting prompt
-                #accuracy = await self.prompt_evaluator.evaluate_prompt(new_prompt)
-                #best_accuracy = accuracy
-                #prompt_accuracies.append((new_prompt, accuracy))
             else:
                 metaprompt = self.update_metaprompt(self.prompt_history, self.metaprompt_template_path)
                 
@@ -153,9 +138,6 @@ class APD:
             # Use the PromptEvaluator to evaluate the new prompt
             accuracy = await self.prompt_evaluator.evaluate_prompt(new_prompt)
             
-            # if i == 0:
-            #     #best_accuracy = starting_accuracy = accuracy
-            #     best_accuracy = accuracy
             prompt_accuracies.append((new_prompt, accuracy))
             await aioconsole.aprint("-" * 150)
             await aioconsole.aprint(f"Overall accuracy for prompt: {accuracy:.2f}")
@@ -222,14 +204,6 @@ if __name__ == "__main__":
         'num_predict': 10
     }
 
-    # target_model_name = "gemini-1.5-flash"
-    # target_model_config = {
-    #     "temperature": 0, "max_output_tokens": 1000
-    # }
-    # review_model_name = "gemini-1.5-flash" 
-    # review_model_config = {
-    #     "temperature": 0, "max_output_tokens": 10 
-    # }
     review_prompt_template_path = 'review_prompt_template.txt'  # Path to the review prompt text file
 
     apd = APD(
