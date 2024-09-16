@@ -1,7 +1,8 @@
 import asyncio
 import os
 import pandas as pd
-from vertexai.generative_models import GenerativeModel, HarmBlockThreshold, HarmCategory
+#from vertexai.generative_models import GenerativeModel, HarmBlockThreshold, HarmCategory
+from ollama import AsyncClient
 import re
 import aiofiles
 import datetime
@@ -11,17 +12,17 @@ import backoff
 
 
 class APD:
-    def __init__(self, num_prompts, starting_prompt, df_train, metaprompt_template_path, generation_model_name, generation_config, safety_settings, target_model_name, target_model_config, review_model_name, review_model_config, review_prompt_template_path):
+    def __init__(self, num_prompts, starting_prompt, df_train, metaprompt_template_path, generation_config, target_model_config,review_model_config, review_prompt_template_path):
         self.num_prompts = num_prompts
         self.starting_prompt = starting_prompt
         self.df_train = df_train
         self.metaprompt_template_path = metaprompt_template_path
-        self.generation_model_name = generation_model_name
+        #self.generation_model_name = generation_model_name
         self.generation_config = generation_config
-        self.safety_settings = safety_settings
 
         # Initialize the generation model
-        self.generation_model = GenerativeModel(self.generation_model_name)
+        #self.generation_model = GenerativeModel(self.generation_model_name)
+        self.generation_model = AsyncClient()
 
         # Create the "runs" folder if it doesn't exist
         self.runs_folder = "runs"
@@ -34,11 +35,8 @@ class APD:
         # Initialize the PromptEvaluator
         self.prompt_evaluator = PromptEvaluator(
             df_train,
-            target_model_name,
             target_model_config,
-            review_model_name,
             review_model_config,
-            safety_settings,
             review_prompt_template_path
         )
 
@@ -90,18 +88,29 @@ class APD:
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=5)
     async def generate_with_backoff(self, metaprompt):
-        response = self.generation_model.generate_content(
-            metaprompt,
-            generation_config=self.generation_config,
-            safety_settings=self.safety_settings,
-            stream=False,
+        model = self.generation_config
+        response = await self.generation_model.generate(
+            model=model['name'], 
+            prompt=metaprompt,
+            options={
+                "temperature": model['temperature']
+            }
         )
-        return response
+        return response['response']
+
+        # response = self.generation_model.generate_content(
+        #     metaprompt,
+        #     generation_config=self.generation_config,
+        #     safety_settings=self.safety_settings,
+        #     stream=False,
+        # )
+        # return response
 
     async def main(self):
         prompt_accuracies = []
         best_prompt = self.starting_prompt
-        best_accuracy = 0.0
+        #best_accuracy = 0.0
+        best_accuracy = float('-inf')  # Initialize with negative infinity
 
         for i in range(self.num_prompts + 1):
             await aioconsole.aprint("=" * 150)
@@ -110,9 +119,9 @@ class APD:
             if i == 0:
                 new_prompt = self.starting_prompt
                 # Evaluate the starting prompt
-                accuracy = await self.prompt_evaluator.evaluate_prompt(new_prompt)
-                best_accuracy = accuracy
-                prompt_accuracies.append((new_prompt, accuracy))
+                #accuracy = await self.prompt_evaluator.evaluate_prompt(new_prompt)
+                #best_accuracy = accuracy
+                #prompt_accuracies.append((new_prompt, accuracy))
             else:
                 metaprompt = self.update_metaprompt(self.prompt_history, self.metaprompt_template_path)
                 
@@ -123,10 +132,10 @@ class APD:
                     continue
                 
                 await aioconsole.aprint("-" * 150)
-                await aioconsole.aprint(response.text)
+                await aioconsole.aprint(response)
                 await aioconsole.aprint("-" * 150)
                 
-                match = re.search(r'\[\[(.*?)\]\]', response.text, re.DOTALL)
+                match = re.search(r'\[(.*?)\]', response, re.DOTALL)
                 if match:
                     new_prompt = match.group(1)
                 else:
@@ -144,9 +153,9 @@ class APD:
             # Use the PromptEvaluator to evaluate the new prompt
             accuracy = await self.prompt_evaluator.evaluate_prompt(new_prompt)
             
-            if i == 0:
-                best_accuracy = starting_accuracy = accuracy
-            
+            # if i == 0:
+            #     #best_accuracy = starting_accuracy = accuracy
+            #     best_accuracy = accuracy
             prompt_accuracies.append((new_prompt, accuracy))
             await aioconsole.aprint("-" * 150)
             await aioconsole.aprint(f"Overall accuracy for prompt: {accuracy:.2f}")
@@ -196,30 +205,36 @@ if __name__ == "__main__":
     df_train = pd.read_csv('train.csv')  # Load your training data
 
     metaprompt_template_path = 'metaprompt_template.txt'
-    generation_model_name = "gemini-1.5-pro"
     generation_config = {
-        "temperature": 0.7,
+        'name': 'gemma2:latest',
+        'temperature': 0.7
     }
-    safety_settings = {
-        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-    }
-    target_model_name = "gemini-1.5-flash"
+
     target_model_config = {
-        "temperature": 0, "max_output_tokens": 1000
+        'name': 'gemma2:latest',
+        'temperature': 0,
+        'num_predict': 1000
     }
-    review_model_name = "gemini-1.5-flash" 
+
     review_model_config = {
-        "temperature": 0, "max_output_tokens": 10 
+        'name': 'deepseek-coder-v2:latest',
+        'temperature': 0,
+        'num_predict': 10
     }
+
+    # target_model_name = "gemini-1.5-flash"
+    # target_model_config = {
+    #     "temperature": 0, "max_output_tokens": 1000
+    # }
+    # review_model_name = "gemini-1.5-flash" 
+    # review_model_config = {
+    #     "temperature": 0, "max_output_tokens": 10 
+    # }
     review_prompt_template_path = 'review_prompt_template.txt'  # Path to the review prompt text file
 
     apd = APD(
         num_prompts, starting_prompt, df_train, 
-        metaprompt_template_path, generation_model_name, generation_config, safety_settings, 
-        target_model_name, target_model_config, review_model_name, review_model_config, review_prompt_template_path
+        metaprompt_template_path, generation_config, target_model_config, review_model_config, review_prompt_template_path
     )
 
     asyncio.run(apd.main())

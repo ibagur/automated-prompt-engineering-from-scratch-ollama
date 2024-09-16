@@ -1,6 +1,7 @@
 import asyncio
 import pandas as pd
-from vertexai.generative_models import GenerativeModel
+#from vertexai.generative_models import GenerativeModel
+from ollama import AsyncClient
 from tqdm.asyncio import tqdm_asyncio
 import backoff
 
@@ -9,42 +10,48 @@ class ReviewModelError(Exception):
     pass
 
 class PromptEvaluator:
-    def __init__(self, df_train, target_model_name, target_model_config, review_model_name, review_model_config, safety_settings, review_prompt_template_path):
+    def __init__(self, df_train, target_model_config, review_model_config, review_prompt_template_path):
         self.df_train = df_train
-        self.target_model_name = target_model_name
+        #self.target_model_name = target_model_name
         self.target_model_config = target_model_config
-        self.review_model_name = review_model_name
+        #self.review_model_name = review_model_name
         self.review_model_config = review_model_config
-        self.safety_settings = safety_settings
+        #self.safety_settings = safety_settings
         self.review_prompt_template_path = review_prompt_template_path
 
-        self.target_model = GenerativeModel(self.target_model_name)
-        self.review_model = GenerativeModel(self.review_model_name)
+        #self.target_model = GenerativeModel(self.target_model_name)
+        #self.review_model = GenerativeModel(self.review_model_name)
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=5)
     async def generate_target_model_response(self, question, prompt):
-        target_model = GenerativeModel(
-            self.target_model_name,
-            generation_config=self.target_model_config,
-            safety_settings=self.safety_settings,
-            system_instruction=prompt
+        target_model = AsyncClient()
+        model = self.target_model_config
+        response = await target_model.generate(
+            model=model['name'], 
+            prompt=question,
+            system=prompt,
+            options={
+                "temperature": model['temperature'],
+                "num_predict": model['num_predict']
+            }
         )
-
-        response = await target_model.generate_content_async(
-            question,
-            stream=False,
-        )
-        return response.text
+        return response['response']
+        
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=5)
     async def generate_review_model_response(self, review_prompt):
-        review_response = await self.review_model.generate_content_async(
-            [review_prompt],
-            generation_config=self.review_model_config,
-            safety_settings=self.safety_settings,
-            stream=False,
+        review_model = AsyncClient()
+        model = self.review_model_config
+        response = await review_model.generate(
+            model=model['name'], 
+            prompt=review_prompt,
+            options={
+                "temperature": model['temperature'],
+                "num_predict": model['num_predict']
+            }
         )
-        return review_response.text.strip().lower()
+        return response['response'].strip().lower()
+
 
     async def generate_and_review(self, row, prompt):
         try:

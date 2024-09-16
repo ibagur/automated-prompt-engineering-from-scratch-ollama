@@ -31,5 +31,5 @@ Write a new prompt that will achieve an accuracy as high as possible and that is
 - Use all available information like prompt length, formal/informal use of language, etc for your analysis.
 - Be creative, try out different ways of prompting the model. You may even come up with hypothetical scenarios that might improve the accuracy.
 - You are generating system prompts. This means that there should be no placeholders in the prompt, as they cannot be filled at runtime. Instead focus on general instructions that will help the model to solve the task.
-- Write your new prompt in double square brackets. Use only plain text for the prompt text and do not add any markdown (i.e. no hashtags, backticks, quotes, etc).
+- Write your new prompt in square brackets. Use only plain text for the prompt text and do not add any markdown (i.e. no hashtags, backticks, quotes, etc).
 </RULES>

@@ -1,0 +1,20 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+aioconsole = "==0.7.1"
+aiofiles = "==24.1.0"
+backoff = "==2.2.1"
+datasets = "==2.20.0"
+numpy = "==2.1.0"
+pandas = "==2.2.2"
+tqdm = "==4.66.5"
+ollama = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.11"
+python_full_version = "3.11.4"
